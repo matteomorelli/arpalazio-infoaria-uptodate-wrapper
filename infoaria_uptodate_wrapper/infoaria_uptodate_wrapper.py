@@ -11,7 +11,7 @@ import os.path
 import subprocess
 
 # Script version
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 
 def validate_input_date(time_string):
@@ -120,6 +120,12 @@ def _parse_configuration_value(ini_path):
             'output_file_extension':
             cfg.get("infoaria", "output_file_extension")
         }
+        transmission = {
+            'server': cfg.get("ftp", "server"),
+            'ftpuser': cfg.get("ftp", "username"),
+            'ftppsw': cfg.get("ftp", "password"),
+            'remote_path': cfg.get("ftp", "remote_path")
+        }
     except ConfigParser.NoOptionError as err:
         # TODO(matteo.morelli@gmail.com): output with a logger handler
         print "|E| Error in INI file: %s" % (err)
@@ -128,7 +134,7 @@ def _parse_configuration_value(ini_path):
         # TODO(matteo.morelli@gmail.com): output with a logger handler
         print "|E| There is a syntax error in your INI file: %s" % (ini_path)
         exit(1)
-    return executable, dataorganizer, infoaria
+    return (executable, dataorganizer, infoaria, transmission)
 
 
 def _validate_configuration_value(cfg_dict):
@@ -176,6 +182,13 @@ def _validate_configuration_value(cfg_dict):
                 check_result.append(True)
             else:
                 check_result.append(False)
+
+        if 'ftpuser' in cfg_dict:
+            # For ftp transmission only server address is really needed
+            if cfg_dict['server']:
+                check_result.append(True)
+            else:
+                check_result.append(False)
         # All configuration variable checked if all results are True everything
         # is fine
         if check_result and False not in check_result:
@@ -206,7 +219,12 @@ def main():
     if verbose:
         print "|I| Log level: DEBUG"
         # TODO(matteo.morelli@gmail): set logger to debug level
-    bin_file, dorganizer, infoaria = _parse_configuration_value(conf_file)
+    # Initialize configuration dictionaries
+    parse_config = _parse_configuration_value(conf_file)
+    bin_file = parse_config[0]
+    dorganizer = parse_config[1]
+    infoaria = parse_config[2]
+    ftp = parse_config[3]
 
     # Initialize InfoAria specific variable
     infoaria_datetime = end_day.replace("/", "") + str(hour)
@@ -232,6 +250,10 @@ def main():
         exit(1)
     if not _validate_configuration_value(infoaria):
         print "|E| Error in [infoaria] section of INI file: %s" % (conf_file)
+        exit(1)
+    if not _validate_configuration_value(ftp):
+        print "|E| Error in [transmission] section of INI file: %s" % \
+            (conf_file)
         exit(1)
     # Now go live! Downloading db data from ecomanager server
     print "|I| Executing ecomanager_db_download.sh script"
