@@ -5,13 +5,13 @@
 
 import argparse
 import datetime
-import logging
 import ConfigParser
 import os.path
 import subprocess
+import ftplib
 
 # Script version
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 
 def validate_input_date(time_string):
@@ -47,15 +47,81 @@ def simple_file_check(file_str):
             f.read()
             pass
     except IOError as err:
-        # TODO(matteo.morelli@gmail.com): fail gracefuly and output with logger handler
+        # TODO: fail gracefuly and output with logger handler
         print "%s - %s" % (file_str, err)
         return False
     return True
 
 
+def ftp_file_upload(connection_parameter, file_list):
+    ##############################################
+    # Function to upload a list of ascii file via FTP protocol
+    # Arguments:
+    #   a dictionary with all the connection parameters
+    #   a list containing a list() of file path to upload
+    #
+    #   connection_parameter = {'srv_address': 'xxx.xxx.xxx.xxx',
+    #                           'ftp_usr': 'username',
+    #                           'ftp_psw': 'password',
+    #                           'ftp_path': '/path/to/upload/'}
+    #
+    # Returns:
+    #   true if all files were uploaded
+    #   false if something goes wrong
+    ##############################################
+    # TODO: Handle upload of different file type based on extension.
+    # Server address is a requirement.
+    if not connection_parameter['srv_address']:
+        print "|E| No FTP server address"
+        return False
+    remote = ftplib.FTP()
+    try:
+        print "|I| Connecting to %s" % (connection_parameter['srv_address'])
+        remote.connect(connection_parameter['srv_address'], 21, 60)
+        remote.login(connection_parameter['ftp_usr'],
+                     connection_parameter['ftp_psw'])
+        # Forcing passive mode
+        remote.set_pasv(True)
+        print "|I| Moving into remote dir: %s" %\
+            (connection_parameter['ftp_path'])
+        remote.cwd(connection_parameter['ftp_path'])
+    except ftplib.all_errors as ftperr:
+        print "|E| Error during FTP transmission: %s" % (ftperr)
+        return False
+
+    if not file_list:
+        print "|W| No file passed for upload"
+        remote.close()
+        return False
+
+    # List for upload status
+    upload_status = list()
+    for upload in file_list:
+        print "|I| Uploading file: %s" % (upload)
+        with open(upload) as fp:
+            # Getting only the filename for
+            # ftp server compatibility (filezilla)
+            filename = upload.split("/")[-1]
+            try:
+                remote.storlines('STOR ' + filename, fp)
+                upload_status.append(True)
+            except ftplib.all_errors as ftperr:
+                print "|E| Error transferring file %s" % (upload)
+                print "|E| Error during FTP transmission: %s" % (ftperr)
+                upload_status.append(False)
+    print "|I| Closing connection to %s" %\
+        (connection_parameter['srv_address'])
+    remote.close()
+    if False in upload_status:
+        return False
+    # If everything is fine exit with true!
+    return True
+
+
 def _define_check_args(parser):
     ##############################################
-    # Function to chek valid input format
+    # This function parse argument variable, check format
+    # and set default value.
     # Arguments:
     #   a parser from argparse module
     # Returns:
@@ -127,11 +193,11 @@ def _parse_configuration_value(ini_path):
             'remote_path': cfg.get("ftp", "remote_path")
         }
     except ConfigParser.NoOptionError as err:
-        # TODO(matteo.morelli@gmail.com): output with a logger handler
+        # TODO: output with a logger handler
         print "|E| Error in INI file: %s" % (err)
         exit(1)
     except ConfigParser.ParsingError as err:
-        # TODO(matteo.morelli@gmail.com): output with a logger handler
+        # TODO: output with a logger handler
         print "|E| There is a syntax error in your INI file: %s" % (ini_path)
         exit(1)
     return (executable, dataorganizer, infoaria, transmission)
