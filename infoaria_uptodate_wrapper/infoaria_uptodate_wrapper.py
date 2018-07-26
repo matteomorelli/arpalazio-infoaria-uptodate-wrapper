@@ -55,7 +55,7 @@ def simple_file_check(file_str):
 
 def ftp_file_upload(connection_parameter, file_list):
     ##############################################
-    # Function to upload a list of ascii file via FTP protocol
+    # Function to chek valid input format
     # Arguments:
     #   a dictionary with all the connection parameters
     #   a list containing a list() of file path to upload
@@ -64,7 +64,6 @@ def ftp_file_upload(connection_parameter, file_list):
     #                           'ftp_usr': 'username',
     #                           'ftp_psw': 'password',
     #                           'ftp_path': '/path/to/upload/'}
-    #
     # Returns:
     #   true if all files were uploaded
     #   false if something goes wrong
@@ -73,6 +72,9 @@ def ftp_file_upload(connection_parameter, file_list):
     # Server address is a requirement.
     if not connection_parameter['srv_address']:
         print "|E| No FTP server address"
+        return False
+    if not file_list:
+        print "|E| No data to transmit"
         return False
     remote = ftplib.FTP()
     try:
@@ -97,18 +99,27 @@ def ftp_file_upload(connection_parameter, file_list):
     # List for upload status
     upload_status = list()
     for upload in file_list:
+        if upload == '':
+            print "|E| Cowardly refusing to transmit an empty string..."
+            upload_status.append(False)
+            continue
         print "|I| Uploading file: %s" % (upload)
-        with open(upload) as fp:
-            # Getting only the filename for
-            # ftp server compatibility (filezilla)
-            filename = upload.split("/")[-1]
-            try:
+        try:
+            with open(upload) as fp:
+                # Getting only the filename for
+                # ftp server compatibility (filezilla)
+                filename = upload.split("/")[-1]
                 remote.storlines('STOR ' + filename, fp)
                 upload_status.append(True)
-            except ftplib.all_errors as ftperr:
-                print "|E| Error transferring file %s" % (upload)
-                print "|E| Error during FTP transmission: %s" % (ftperr)
-                upload_status.append(False)
+        except IOError as file_err:
+            print "|E| Error transferring file %s" % (upload)
+            print "|E| Error during FILE operation: %s" % (file_err)
+            upload_status.append(False)
+        except ftplib.all_errors as ftp_err:
+            print "|E| Error transferring file %s" % (upload)
+            print "|E| Error during FTP transmission: %s" % (ftp_err)
+            upload_status.append(False)
+
     print "|I| Closing connection to %s" %\
         (connection_parameter['srv_address'])
     remote.close()
@@ -294,7 +305,6 @@ def main():
 
     # Initialize InfoAria specific variable
     infoaria_datetime = end_day.replace("/", "") + str(hour)
-    infoaria_year = infoaria_datetime[0:4]
     infoaria_file_out = infoaria['output_path'] \
                         + infoaria['output_file_suffix'] \
                         + infoaria_datetime \
@@ -380,7 +390,7 @@ def main():
                                           infoaria['sampling_point'],
                                           infoaria['pollutant_file'],
                                           infoaria['station_file'],
-                                          infoaria_year,
+                                          dorganizer['output_path'],
                                           infoaria_file_out],
                                          stdout=infoaria_file,
                                          stderr=infoaria_file
@@ -389,14 +399,19 @@ def main():
         print "|E| Something wrong with: %s" % (bin_file['infoaria'])
         exit(1)
     infoaria_file.close()
-    # Check network status
-    # 
-    # Start of user requested network transmission protocol
-    # 
-    # Checking transmission execution
-    # 
-    # Closing transmission and quitting execution
-
+    # Starting data transmission
+    ftp_transm_parameter = {'srv_address': ftp['server'],
+                            'ftp_usr': ftp['ftpuser'],
+                            'ftp_psw': ftp['ftppsw'],
+                            'ftp_path': ftp['remote_path']}
+    ftp_transm_files = list()
+    ftp_transm_files.append(infoaria_file_out)
+    print "|I| Starting transmission to: %s" % (ftp['server'])
+    if not ftp_file_upload(ftp_transm_parameter, ftp_transm_files):
+        print "|E| Something wrong with data transmission."
+        exit(1)
+    print "|I| Execution terminated without error at %s" %\
+        (datetime.datetime.utcnow().strftime("%Y.%m.%d %H:%M%Z"))
 
 if __name__ == ("__main__"):
     main()
