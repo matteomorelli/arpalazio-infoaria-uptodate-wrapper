@@ -1,0 +1,5 @@
+ data_in      data_fin    stazcd   nomestaz   paramcd  inqui   istanzacd
+01.01.1999   31.12.2007     17     Rieti1       62     BENZC       01
+01.01.1999   31.12.2007     62     FrosScalo    62     BENZC       01
+01.01.1999   31.12.2008     32     Viterbo      62     BENZC       01
+01.01.1999   31.12.2005     19     LT-Romagn    62     BENZC       01

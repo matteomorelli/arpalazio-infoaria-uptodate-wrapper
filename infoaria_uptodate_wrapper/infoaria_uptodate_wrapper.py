@@ -11,7 +11,7 @@ import subprocess
 import ftplib
 
 # Script version
-VERSION = "0.3.2"
+VERSION = "1.0.0"
 
 
 def validate_input_date(time_string):
@@ -163,10 +163,10 @@ def _define_check_args(parser):
     if hour is None:
         system_hour = datetime.datetime.strftime(datetime.datetime.now(), '%H')
         # Apply a correction for ecomanager time system 1 <= time <= 24
-        # against system time 0 <= time < 24
+        # against datretime library time range that is 0 <= time < 24
         hour = int(system_hour) + 1
-        if hour < 10:
-            hour = "0" + hour
+    if int(hour) < 10:
+        hour = "0" + str(hour)
     return (args.ini_file, start, end, hour, args.verbose)
 
 
